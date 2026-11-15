@@ -1,0 +1,25 @@
+@Store.WebApi_HostAddress = http://localhost:5076
+
+### Crear pedido válido -> 201 (estado Pending)
+POST {{Store.WebApi_HostAddress}}/orders
+Content-Type: application/json
+
+{ "customerName": "Ana", "sku": "ABC-01", "quantity": 2 }
+
+### Datos inválidos -> 400 con errores por campo
+POST {{Store.WebApi_HostAddress}}/orders
+Content-Type: application/json
+
+{ "customerName": "", "sku": "NOPE-99", "quantity": 0 }
+
+### Listar pedidos
+GET {{Store.WebApi_HostAddress}}/orders
+
+### Detalle (reemplazá el id por uno real)
+GET {{Store.WebApi_HostAddress}}/orders/00000000-0000-0000-0000-000000000000
+
+### Liveness / Readiness
+GET {{Store.WebApi_HostAddress}}/health/live
+
+###
+GET {{Store.WebApi_HostAddress}}/health/ready
