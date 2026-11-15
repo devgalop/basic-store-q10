@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Store.Core/Store.Core.csproj" />
+  <Project Path="Store.Infrastructure/Store.Infrastructure.csproj" />
+  <Project Path="Store.Inventory.Worker/Store.Inventory.Worker.csproj" />
+  <Project Path="Store.Tests/Store.Tests.csproj" />
+  <Project Path="Store.WebApi/Store.WebApi.csproj" />
+</Solution>
