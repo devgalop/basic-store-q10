@@ -1,0 +1,128 @@
+# OrderFlow — `docker compose up` levanta todo el sistema.
+name: orderflow
+
+x-postgres-env: &postgres-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: ${POSTGRES_USER:-store}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-store_dev_password}
+  POSTGRES_DATABASE_NAME: ${POSTGRES_DATABASE_NAME:-store}
+
+x-rabbitmq-env: &rabbitmq-env
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: ${RABBITMQ_USER:-store}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-store_dev_password}
+  # Espera antes de reintentar un mensaje fallido. Se fija al crear las colas: cambiarla con el stack ya
+  # levantado exige `docker compose down -v` (RabbitMQ rechaza redeclarar una cola con otro TTL).
+  RABBITMQ_RETRY_DELAY_SECONDS: ${RABBITMQ_RETRY_DELAY_SECONDS:-10}
+
+services:
+  postgres:
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-store}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-store_dev_password}
+      POSTGRES_DB: ${POSTGRES_DATABASE_NAME:-store}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-store}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-store_dev_password}
+    ports:
+      # Consola de gestión: permite ver colas, reintentos y la DLQ. Cambiá el puerto si 15672 está ocupado.
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      # Verifica que el listener AMQP (5672) esté escuchando. `ping` NO alcanza: responde apenas el nodo vive,
+      # ~25 s antes de aceptar conexiones, y los servicios arrancaban contra un broker todavía inalcanzable.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_listener", "5672"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  # Inventory Worker: consume OrderCreated, reserva stock, publica StockReserved/StockRejected.
+  # Es dueño del schema `inventory` (migraciones + seed al arrancar).
+  worker:
+    build:
+      context: ./src
+      dockerfile: Store.Inventory.Worker/Dockerfile
+    environment:
+      <<: [*postgres-env, *rabbitmq-env]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Orders API: REST + consumidor de resultados. Dueña del schema `orders`.
+  # Su readiness (/health/ready) solo da OK cuando el Worker ya creó el schema `inventory` y cargó el seed.
+  api:
+    build:
+      context: ./src
+      dockerfile: Store.WebApi/Dockerfile
+    environment:
+      <<: [*postgres-env, *rabbitmq-env]
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  # Panel web (React): nginx sirve la app y reenvía /api/* a la API. El navegador solo habla con este origen,
+  # por eso no hay CORS ni una URL de la API fijada al compilar. Abrí http://localhost:3000
+  web:
+    build:
+      context: ./web
+    ports:
+      - "${WEB_PORT:-3000}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Tests con base de datos real: `docker compose run --rm tests`. No arranca con `docker compose up`.
+  tests:
+    profiles: ["tests"]
+    build:
+      context: ./src
+      dockerfile: Store.Tests/Dockerfile
+    environment: *postgres-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  rabbitmq-data:

@@ -1,0 +1,9 @@
+# El contexto de build es src/: se excluye todo lo que se genera o es local, para builds rápidos y reproducibles.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.suo
+**/launchSettings.json
+**/appsettings.Development.json
+**/Dockerfile
