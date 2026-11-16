@@ -21,14 +21,17 @@ const created: Order = {
 };
 
 async function fill(user: ReturnType<typeof userEvent.setup>, name: string, sku: string, quantity: string) {
-  await user.type(screen.getByLabelText('Cliente'), name);
-  await user.type(screen.getByLabelText('SKU'), sku);
+  // user.type('') lanza "Expected key descriptor": un campo vacío simplemente no se tipea.
+  if (name) await user.type(screen.getByLabelText('Cliente'), name);
+  if (sku) await user.type(screen.getByLabelText('SKU'), sku);
   await user.clear(screen.getByLabelText('Cantidad'));
   if (quantity) await user.type(screen.getByLabelText('Cantidad'), quantity);
 }
 
 describe('OrderForm', () => {
-  beforeEach(() => vi.mocked(createOrder).mockReset());
+  // En Vitest 5, mockReset() sobre este mock deja sin manejar los rechazos posteriores (mockRejectedValue) aunque el
+  // componente los atrape; resetAllMocks() resetea igual las implementaciones sin ese efecto.
+  beforeEach(() => vi.resetAllMocks());
 
   it('valida en el cliente: muestra los errores en pantalla y NO llama a la API', async () => {
     const user = userEvent.setup();
