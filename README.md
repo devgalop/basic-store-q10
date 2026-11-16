@@ -2,7 +2,7 @@
 
 Sistema de pedidos con reserva de inventario. Cada pedido reserva stock antes de confirmarse: si alcanza, se **confirma**; si no, se **rechaza**. Dos servicios .NET 10 (API y Worker) se comunican de forma asíncrona por RabbitMQ y comparten PostgreSQL, y un panel web permite registrar pedidos y ver su estado.
 
-Documentación complementaria: [Arquitectura y trade-offs](docs/ARCHITECTURE.md) · [Riesgos](docs/RISKS.md) · [Contexto del problema](docs/CONTEXT.md)
+Documentación complementaria: [Arquitectura y trade-offs](docs/ARCHITECTURE.md) - [Riesgos](docs/RISKS.md) - [Contexto del problema](docs/CONTEXT.md) - [Evidencias](docs/EVIDENCES.md)
 
 ## Contenido
 
@@ -110,7 +110,7 @@ El detalle completo, con lo que se gana y lo que se cede en cada una, está en [
 - **`POST /orders` devuelve 201**, que es lo que pide el enunciado; lo que se garantiza de forma síncrona es la persistencia, no el resultado.
 - **nginx como proxy de `/api` en lugar de CORS:** el mismo build sirve en cualquier entorno (sin URL fijada al compilar) y no hay que configurar orígenes. Cede un `nginx.conf` de ~40 líneas.
 - **Polling (3 s) en lugar de SignalR:** simple y suficiente; el tiempo real es un bonus que no se implementó.
-- **Tests contra PostgreSQL real**, no mocks ni SQLite: la concurrencia y la atomicidad son propiedades de la base de datos. No usé Testcontainers porque no pude verificarlo en mi entorno (Docker solo accesible desde WSL); en su lugar hay un servicio `tests` en el compose.
+- **Tests contra PostgreSQL real**, no mocks ni SQLite: la concurrencia y la atomicidad son propiedades de la base de datos. Se creó un servicio `tests` en el compose.
 - **Credenciales por defecto en el compose** (solo desarrollo local) para que `docker compose up` no requiera pasos manuales; el código no tiene ningún secreto.
 
 ## Idempotencia: cómo demostrarla
