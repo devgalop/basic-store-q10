@@ -23,6 +23,8 @@ El backend de la aplicación `Store` está estructurado en varios proyectos que 
 
 `Store.Core` no depende de PostgreSQL ni de RabbitMQ: expone contratos (`IOrderStore`, `IStockReservation`, `IEventOutbox`, `IIntegrationEventHandler<T>`) que `Store.Infrastructure` implementa.
 
+![Arquitectura](./resources/ev8_arquitectura_backend.png)
+
 ### Flujo de extremo a extremo
 
 ```mermaid
