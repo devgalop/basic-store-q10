@@ -190,7 +190,13 @@ docker compose run --rm tests
 
 Este comando usa el PostgreSQL del compose (lo levanta si hace falta) y no necesita nada instalado en tu máquina. Sin Docker: `dotnet test src/Store.slnx`, con un PostgreSQL accesible y `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE_NAME` (y opcionalmente `POSTGRES_HOST`/`POSTGRES_PORT`) como variables de entorno o *user-secrets*.
 
-**Frontend** (Vitest + Testing Library): `cd web && npm install && npm test`. **Estado honesto:** no está en verde. Los tests de validación, del cliente HTTP y de la lista pasan si se ejecuta cada archivo por separado, pero `OrderForm.test.tsx` tiene 3 tests fallando que no diagnostiqué, y ejecutar los 4 archivos juntos produce un error de Vitest 5.1 que tampoco expliqué. El build de Docker no ejecuta estos tests. En su lugar, comprobé el comportamiento del panel manejándolo en un navegador real (Edge): datos inválidos con el error visible bajo cada campo, error del servidor junto al SKU, un pedido válido pasando de *Pendiente* a *Confirmado* sin recargar, y una caída de conexión que muestra una alerta, conserva la lista y se recupera sola.
+**Frontend** (Vitest + Testing Library, 24 casos en 4 archivos): validación del formulario, cliente HTTP, lista de pedidos y formulario de alta (errores del cliente y del servidor junto a cada campo, alerta ante una caída de conexión, y limpieza del formulario tras crear un pedido).
+
+```bash
+cd web && npm install && npm test
+```
+
+El build de Docker no ejecuta estos tests. Además, se comprobó el comportamiento del panel manejándolo en un navegador real (Edge): datos inválidos con el error visible bajo cada campo, error del servidor junto al SKU, un pedido válido pasando de *Pendiente* a *Confirmado* sin recargar, y una caída de conexión que muestra una alerta, conserva la lista y se recupera sola.
 
 ## Estructura del repositorio
 
@@ -215,7 +221,7 @@ Tecnología: .NET 10 (ASP.NET Core, Worker Service, EF Core), PostgreSQL 18, Rab
 | Backend en .NET 10 (bonus) | Hecho |
 | Kubernetes (bonus) | **No implementado**, por tiempo: ver la sección siguiente |
 | Tiempo real con SignalR (bonus) | No implementado; el panel usa *polling* cada 3 s |
-| Tests del frontend | Escritos pero no en verde (ver [Tests](#tests)) |
+| Tests del frontend | Hecho: 24 casos en verde (ver [Tests](#tests)) |
 | Autenticación | Fuera del alcance de la prueba (riesgo residual [RR2](docs/RISKS.md#riesgos-residuales-abiertos)) |
 | Paginación de `GET /orders` | No implementada: devuelve todos los pedidos |
 
@@ -234,7 +240,7 @@ Por cuestiones de tiempo no se escribieron los manifiestos. El despliegue previs
 ## Qué haría distinto con más tiempo
 
 1. **Detectar pedidos atascados:** un proceso que alerte los `Pending` de más de N minutos (la consulta está en [Monitoreo](#monitoreo)) y evaluar un estado `ProcessingFailed`.
-2. **Dejar los tests en verde y completarlos:** diagnosticar los del frontend, y añadir tests de integración con RabbitMQ real (reconexión de consumidores, reintentos y DLQ), que hoy comprobé a mano.
+2. **Completar los tests:** añadir tests de integración con RabbitMQ real (reconexión de consumidores, reintentos y DLQ), que hoy comprobé a mano, y correr los tests del frontend en el build de Docker o en CI.
 3. **Observabilidad:** OpenTelemetry con métricas de outbox pendiente, profundidad de la DLQ y latencia de procesamiento, además de *tracing* entre API y Worker.
 4. **Autenticación y autorización** para la API y el panel de operaciones, más *rate limiting*.
 5. **Tiempo real** con SignalR en lugar de *polling*.
